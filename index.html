@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Log Line Cepha</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config={theme:{extend:{colors:{bg:'var(--bg)',card:'var(--card)',ink:'var(--ink)',mute:'var(--mute)',line:'var(--line)',navy:'var(--navy)'}}}}</script>
+<style>
+:root{color-scheme:light;--bg:#f8fafc;--card:#ffffff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--navy:#ea580c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif}
+select,input,textarea{color-scheme:light}
+</style></head>
+<body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide-react@0.383.0/dist/umd/lucide-react.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const{useState,useEffect}=React,h=React.createElement,html=htm.bind(h);
+const LC=window.lucideReact||window['lucide-react']||{};
+const ic=(n,s=16)=>LC[n]?h(LC[n],{size:s}):null;
+const K={u:'lc_users',r:'lc_reports',a:'lc_audit',s:'lc_session'};
+const ld=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){alert('Penyimpanan perangkat penuh. Data belum tersimpan: kurangi foto atau arsipkan laporan lama.')}};
+const useP=(k,d)=>{const[v,s]=useState(()=>ld(k,d));useEffect(()=>sv(k,v),[k,v]);return[v,s]};
+const p2=n=>String(n).padStart(2,'0');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())};
+const ts=()=>{const d=new Date();return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds())};
+const fd=s=>s?s.split('-').reverse().join('/'):'-';
+const nf=n=>Number(n||0).toLocaleString('id-ID');
+const now=()=>new Date().toISOString(),PWD=90;
+const exD=u=>{const d=new Date(u.pwAt||0);d.setDate(d.getDate()+PWD);d.setHours(23,59,59,999);return d};
+const exS=u=>{const d=exD(u);return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()};
+const isEx=u=>exD(u).getTime()<Date.now();
+const SEED=[{id:1,name:'Heri',label:'Operator Line',username:'Heri',pw:'12345',role:'Operator',on:true,pwAt:now(),fails:0,lock:false},{id:2,name:'SUP',label:'Supervisor / Admin',username:'SUP',pw:'12345',role:'Admin',on:true,pwAt:now(),fails:0,lock:false}];
+const SH=['Shift 1','Shift 2','Shift 3'],TY=['Kerusakan Mesin','Perbaikan & Setting','Alarm','Kendala Komponen'];
+const M=[{k:'w',n:'Washing Vial',s:'Washing',i:'Droplets',f:[['in','Jumlah Vial Masuk (pcs)'],['sisa','Sisa Tunnel (pcs)']]},{k:'f',n:'Filling Vial',s:'Filling',i:'Syringe',f:[['fill','Jumlah Filling (pcs)'],['rej','Reject Filling (pcs)']]},{k:'c',n:'Crimping',s:'Crimping',i:'Package',f:[['out','Output Akhir (pcs)'],['rej','Reject Crimping (pcs)']]},{k:'a',n:'Autoclave Fedegari',s:'Autoclave',i:'Flame',f:[]}];
+const AC=[['Rubber Stopper','Bag'],['Alucap','Bag'],['Part Filling','Set'],['Pressure Tank','Set'],['Baju','Bag'],['Lainnya','']];
+const un=t=>(AC.find(x=>x[0]===t)||[])[1]||'';
+const oTxt=o=>(o.t==='Lainnya'?(o.n||'Lainnya'):o.t)+': '+o.q+(un(o.t)?' '+un(o.t):'');
+const MS=fl=>fl.m?M.filter(m=>m.k===fl.m):M,mn=fl=>fl.m?M.find(m=>m.k===fl.m).n:'Semua Mesin',nph=e=>(e.p||[]).length;
+const cmp=f=>new Promise((ok,no)=>{const r=new FileReader();r.onerror=no;r.onload=()=>{const i=new Image();i.onerror=no;i.onload=()=>{const k=Math.min(1,800/i.width),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.7))};i.src=r.result};r.readAsDataURL(f)});
+const CF=[['date','Tanggal'],['shift','Shift'],['product','Nama Produk'],['batch','Nomor Batch'],['w.in','Washing · Vial Masuk (pcs)'],['w.sisa','Washing · Sisa Tunnel (pcs)'],['f.fill','Filling · Jumlah Filling (pcs)'],['f.rej','Filling · Reject (pcs)'],['c.out','Crimping · Output Akhir (pcs)'],['c.rej','Crimping · Reject (pcs)']];
+const get=(o,p)=>p.split('.').reduce((a,k)=>a[k],o);
+const put=(o,p,v)=>{const[a,b]=p.split('.');return b?{...o,[a]:{...o[a],[b]:v}}:{...o,[a]:v}};
+const isN=p=>p.includes('.');
+const dur=(s,e)=>{if(!s||!e)return 0;const a=s.split(':'),b=e.split(':');const m=b[0]*60+(+b[1])-a[0]*60-(+a[1]);return m<0?m+1440:m};
+const dt=(r,k)=>r[k].ev.reduce((a,e)=>a+dur(e.s,e.e),0);
+const yl=r=>{const n=r.w.in-r.w.sisa;return n>0?r.c.out/n*100:null};
+const pc=v=>v==null?'-':v.toFixed(2)+'%';
+const agg=L=>{const s=f=>L.reduce((a,r)=>a+f(r),0),w=s(r=>r.w.in),sisa=s(r=>r.w.sisa),co=s(r=>r.c.out),net=w-sisa;return{w,sisa,net,co,fr:s(r=>r.f.rej),cr:s(r=>r.c.rej),y:net>0?co/net*100:null,dw:s(r=>dt(r,'w')),df:s(r=>dt(r,'f')),dc:s(r=>dt(r,'c')),da:s(r=>dt(r,'a'))}};
+const blank=()=>({date:today(),shift:'Shift 1',product:'',batch:'',w:{in:'',sisa:'',ev:[]},f:{fill:'',rej:'',ev:[]},c:{out:'',rej:'',ev:[]},a:{o:[],ev:[]}});
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const inR=(d,a,z)=>(!a||d>=a)&&(!z||d<=z);
+const iso=t=>t.slice(6,10)+'-'+t.slice(3,5)+'-'+t.slice(0,2);
+const rng=f=>!f.a&&!f.z?'Semua tanggal':(f.a?fd(f.a):'Awal')+' s/d '+(f.z?fd(f.z):'Sekarang');
+const yS=r=>yl(r)==null?'-':+yl(r).toFixed(2);
+const EV=(L,mk)=>L.flatMap(r=>M.filter(m=>!mk||m.k===mk).flatMap(m=>r[m.k].ev.map(e=>({r,m,e}))));
+const sheet=(rows,w)=>{const s=XLSX.utils.aoa_to_sheet(rows);s['!cols']=w.map(x=>({wch:x}));return s};
+const xl=(name,sh)=>{const wb=XLSX.utils.book_new();sh.forEach(([n,s])=>XLSX.utils.book_append_sheet(wb,s,n));
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)};
+const HD=(t,fl,by)=>[['LOG LINE CEPHA — Log Harian Line Cephalosporin'],[t],['Rentang Tanggal',rng(fl)],['Mesin',mn(fl)],['Diekspor oleh',by],['Waktu',ts()]];
+const mh=m=>m.k==='a'?['Autoclave: Output Sterilisasi']:m.f.map(([,l])=>m.s+': '+l);
+const mv=(r,m)=>m.k==='a'?[r.a.o.length?r.a.o.map(oTxt).join('; '):'-']:m.f.map(([f])=>r[m.k][f]);
+const ao=L=>{const T={};L.forEach(r=>r.a.o.forEach(o=>{const l=o.t==='Lainnya',k=l?'Lainnya · '+(o.n||'-'):o.t+' ('+un(o.t)+')';T[k]=l?(T[k]?T[k]+', ':'')+o.q:(T[k]||0)+(+o.q||0)}));return Object.entries(T)};
+const mt=(L,m)=>m.k==='a'?ao(L):m.f.map(([f,l])=>[l,L.reduce((a,r)=>a+(+r[m.k][f]||0),0)]);
+const xLog=(L,fl)=>['Log Kejadian',sheet([['Tanggal','Shift','Batch','Mesin','Jenis Kejadian','Mulai','Selesai','Downtime (menit)','Uraian','Tindakan Perbaikan','Bukti Foto'],...EV(L,fl.m).map(({r,m,e})=>[r.date,r.shift,r.batch,m.n,e.type,e.s,e.e,dur(e.s,e.e),e.desc,e.act,nph(e)?nph(e)+' Foto terlampir':'-'])],[12,9,14,16,20,8,8,12,40,40,18])];
+const xOne=(L,fl,by)=>{const g=agg(L),m=MS(fl)[0],ev=EV(L,fl.m);return[
+['Rangkuman '+m.s,sheet([...HD('Rangkuman Mesin: '+m.n,fl,by),['Shift',fl.s||'Semua'],['Nomor Batch',fl.b||'Semua'],[],['Jumlah Laporan',L.length],...mt(L,m),['Downtime (menit)',g['d'+m.k]],['Jumlah Kejadian',ev.length],['Kejadian dengan Foto',ev.filter(x=>nph(x.e)).length]],[34,32])],
+['Detail '+m.s,sheet([['Tanggal','Shift','Produk','Batch',...mh(m),'Downtime (mnt)','Status','Diinput Oleh','Diverifikasi Oleh'],...L.map(r=>[r.date,r.shift,r.product,r.batch,...mv(r,m),dt(r,m.k),r.st,r.by,r.vb||'-'])],[12,9,20,14,...mh(m).map(()=>m.k==='a'?40:18),14,14,14,16])],xLog(L,fl)]};
+const xProd=(L,fl,by)=>fl.m?xOne(L,fl,by):xAll(L,fl,by);
+const xAll=(L,fl,by)=>{const g=agg(L);return[
+['Rangkuman Yield',sheet([...HD('Rangkuman Performa & Yield',fl,by),['Shift',fl.s||'Semua'],['Nomor Batch',fl.b||'Semua'],[],['Jumlah Laporan',L.length],['Vial Masuk Washing (pcs)',g.w],['Sisa Tunnel (pcs)',g.sisa],['Net Input (pcs)',g.net],['Output Akhir Crimping (pcs)',g.co],['Yield (%)',g.y==null?'-':+g.y.toFixed(2)],['Reject Filling (pcs)',g.fr],['Reject Crimping (pcs)',g.cr],['Downtime Washing (menit)',g.dw],['Downtime Filling (menit)',g.df],['Downtime Crimping (menit)',g.dc],['Downtime Autoclave (menit)',g.da],...ao(L).map(([k,v])=>['Autoclave · '+k,v])],[34,32])],
+['Detail Produksi',sheet([['Tanggal','Shift','Produk','Batch','Washing: Vial Masuk','Washing: Sisa Tunnel','Filling: Jumlah','Filling: Reject','Crimping: Output Akhir','Crimping: Reject','Yield (%)','Downtime Washing (mnt)','Downtime Filling (mnt)','Downtime Crimping (mnt)','Output Autoclave','Downtime Autoclave (mnt)','Status','Diinput Oleh','Diverifikasi Oleh'],...L.map(r=>[r.date,r.shift,r.product,r.batch,r.w.in,r.w.sisa,r.f.fill,r.f.rej,r.c.out,r.c.rej,yS(r),dt(r,'w'),dt(r,'f'),dt(r,'c'),mv(r,M[3])[0],dt(r,'a'),r.st,r.by,r.vb||'-'])],[12,9,20,14,14,14,12,12,14,12,10,14,14,14,34,14,14,14,16])],
+xLog(L,fl)]};
+const tb=(h,rows)=>'<table><thead><tr>'+h.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+(rows.length?rows.map(r=>'<tr>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+h.length+'">Tidak ada data pada rentang ini.</td></tr>')+'</tbody></table>';
+const PCSS='@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font:11px/1.45 "IBM Plex Sans",Arial,sans-serif;color:#0f172a;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}h1{margin:0 0 2px;font-size:20px;color:#ea580c}h2{font-size:13px;margin:16px 0 6px;border-bottom:2px solid #ea580c;padding-bottom:3px}.kop{border-bottom:3px solid #ea580c;padding-bottom:8px;margin-bottom:12px}.cards{display:flex;gap:8px}.cards div{flex:1;border:1px solid #cbd5e1;border-radius:6px;padding:8px}.cards .y{background:#ea580c;color:#fff;border-color:#ea580c}.cards b{display:block;font-size:18px}table{width:100%;border-collapse:collapse;font-size:9.5px}th,td{border:1px solid #cbd5e1;padding:3px 4px;text-align:left;vertical-align:top}th{background:#ffedd5}tr{page-break-inside:avoid}thead{display:table-header-group}.sg{display:flex;gap:16px;margin-top:28px;page-break-inside:avoid}.sg div{flex:1;text-align:center}.sg i{display:block;height:56px;border-bottom:1px solid #0f172a;margin-bottom:4px}.lg span{display:inline-block;width:10px;height:10px;margin:0 4px 0 12px}.lg span:first-child{margin-left:0}.fc{border:1px solid #cbd5e1;border-radius:6px;padding:6px;margin-bottom:8px;page-break-inside:avoid}.ph{display:flex;gap:6px;margin-top:6px}.ph img{width:32%;max-height:210px;object-fit:contain;border:1px solid #cbd5e1}@media screen{body{max-width:210mm;margin:0 auto;padding:14mm}}';
+const rpt=(ttl,fl,by,body)=>'<!doctype html><html lang="id"><head><meta charset="utf-8"><title>'+esc(ttl)+'</title><style>'+PCSS+'</style></head><body><div class="kop"><h1>Log Line Cepha — Log Harian Line Cephalosporin</h1><div><b>'+esc(ttl)+'</b></div><div>Rentang tanggal: <b>'+rng(fl)+'</b> · Diekspor oleh '+esc(by)+' · '+ts()+'</div></div>'+body+'<div class="sg">'+['Dibuat oleh','Diverifikasi oleh (Supervisor)','Disetujui oleh (QA)'].map(x=>'<div>'+x+'<i></i>Nama / Tanggal</div>').join('')+'</div></body></html>';
+const tt=a=>tb(['Parameter','Total'],a.map(([x,y])=>[x,typeof y==='number'?nf(y):y]));
+const foto=ev=>{const E=ev.filter(x=>nph(x.e));return E.length?E.map(({r,m,e})=>'<div class="fc"><b>Tanggal:</b> '+fd(r.date)+' · <b>Batch:</b> '+esc(r.batch)+' · <b>Mesin:</b> '+esc(m.n)+'<br><b>Uraian Kendala:</b> '+esc(e.desc||'-')+'<div class="ph">'+e.p.map(s=>'<img src="'+s+'">').join('')+'</div></div>').join(''):'<p>Tidak ada foto bukti kendala pada rentang ini.</p>'};
+const pProd=(L,fl)=>{const g=agg(L),one=!!fl.m,ms=MS(fl),m1=ms[0],ev=EV(L,fl.m),cd=a=>'<div class="cards">'+a.map(([x,y,c])=>'<div class="'+c+'">'+x+'<b>'+esc(y)+'</b></div>').join('')+'</div>';let top;
+if(one)top=cd([['Mesin',m1.n,'y'],['Jumlah Laporan',L.length,''],['Total Downtime',g['d'+m1.k]+' menit',''],['Jumlah Kejadian',ev.length,'']])+'<h2>Total Output / Parameter</h2>'+tt(mt(L,m1));
+else{const D=[['Washing',g.dw,0],['Filling',g.df,g.fr],['Crimping',g.dc,g.cr],['Autoclave',g.da,0]],mx=Math.max(1,...D.flatMap(x=>[x[1],x[2]]));
+const bars=D.map((x,i)=>{const X=40+i*130;return[[x[1],X,'#ea580c'],[x[2],X+46,'#475569']].map(([v,px,c])=>{const bh=v/mx*130;return'<rect x="'+px+'" y="'+(160-bh)+'" width="42" height="'+bh+'" fill="'+c+'"/><text x="'+(px+21)+'" y="'+(155-bh)+'" font-size="11" text-anchor="middle">'+v+'</text>'}).join('')+'<text x="'+(X+44)+'" y="180" font-size="12" text-anchor="middle">'+x[0]+'</text>'}).join('');
+top=cd([['Yield',pc(g.y),'y'],['Output Akhir',nf(g.co)+' pcs',''],['Net Input',nf(g.net)+' pcs',''],['Jumlah Laporan',L.length,'']])+'<h2>Perbandingan Downtime &amp; Reject antar Mesin</h2><svg viewBox="0 0 560 190" width="100%"><line x1="30" y1="160" x2="540" y2="160" stroke="#94a3b8"/>'+bars+'</svg><p class="lg"><span style="background:#ea580c"></span>Downtime (menit)<span style="background:#475569"></span>Reject (pcs); Washing dan Autoclave tidak mencatat reject</p><h2>Total Output Autoclave</h2>'+tt(ao(L))}
+return top+'<h2>Detail Batch</h2>'+tb(['Tanggal','Shift','Produk','Batch',...ms.flatMap(m=>m.k==='a'?['Output Autoclave']:m.f.map(([,l])=>l.replace(' (pcs)','').replace('Jumlah ',''))),one?'Downtime (mnt)':'Yield','Status'],L.map(r=>[fd(r.date),r.shift,r.product,r.batch,...ms.flatMap(m=>mv(r,m).map(v=>typeof v==='number'?nf(v):v)),one?dt(r,m1.k):pc(yl(r)),r.st]))
++'<h2>Kronologi Kendala Mesin</h2>'+tb(['Tanggal','Shift','Batch','Mesin','Jenis','Waktu','Menit','Uraian','Tindakan','Foto'],ev.map(({r,m,e})=>[fd(r.date),r.shift,r.batch,m.n,e.type,e.s+'–'+e.e,dur(e.s,e.e),e.desc||'-',e.act||'-',nph(e)||'-']))
++'<h2>Lampiran Bukti Foto Kendala</h2>'+foto(ev)};
+const Prev=({h,onClose})=>html`<div className="fixed inset-0 z-40 flex flex-col bg-slate-300"><div className="flex items-center justify-between gap-2 bg-navy p-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] text-white"><button className="rounded-lg bg-white/20 px-3 py-2 text-sm font-medium" onClick=${()=>{const w=document.getElementById('pf').contentWindow;w.focus();w.print()}}>Cetak / Simpan PDF</button><button className="rounded-lg bg-white/20 px-3 py-2 text-sm" onClick=${onClose}>Tutup</button></div><iframe id="pf" title="Pratinjau laporan" srcDoc=${h} className="w-full flex-1 bg-white"></iframe></div>`;
+
+const IN='w-full rounded-lg border border-line bg-card text-ink px-3 py-2 text-base outline-none focus:ring-2 focus:ring-orange-500';
+const BT='inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium disabled:opacity-50';
+const PR=BT+' bg-navy text-white',OU=BT+' border border-line text-ink',CD='rounded-xl border border-line bg-card p-4';
+const AM='bg-amber-500/15 text-amber-600',GR='bg-emerald-500/15 text-emerald-600',BL='bg-sky-500/15 text-sky-600',RD='bg-rose-500/15 text-rose-600';
+const F=({l,children})=>html`<label className="block"><span className="mb-1 block text-xs font-medium text-mute">${l}</span>${children}</label>`;
+const Bd=({c,children})=>html`<span className=${'inline-block rounded-full px-2 py-0.5 text-xs font-medium '+c}>${children}</span>`;
+const Er=({t})=>t?html`<p className="rounded-lg bg-rose-500/15 px-3 py-2 text-sm text-rose-600">${t}</p>`:null;
+
+const Ph=({p,set})=>{const[er,setEr]=useState(''),add=async ev=>{const all=[...ev.target.files],fs=all.filter(f=>/^image\//.test(f.type)).slice(0,3-p.length);ev.target.value='';setEr(all.length>fs.length?'Maksimal 3 foto per kejadian.':'');
+try{const u=await Promise.all(fs.map(cmp));set(a=>[...a,...u].slice(0,3))}catch(x){setEr('Foto gagal diproses, coba lagi.')}};
+return html`<div className="space-y-2"><span className="block text-xs font-medium text-mute">Bukti Foto (opsional, maks. 3)</span>
+<div className="flex flex-wrap gap-2">${p.map((s,i)=>html`<div key=${i} className="relative"><img src=${s} alt=${'Foto '+(i+1)} className="h-20 w-20 rounded-lg border border-line object-cover" /><button aria-label="Hapus foto" className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-rose-600 text-white" onClick=${()=>set(a=>a.filter((_,j)=>j!==i))}>${ic('X',14)}</button></div>`)}</div>
+${p.length<3&&html`<label className=${OU+' cursor-pointer'}>${ic('Camera')} Ambil / Pilih Foto (${p.length}/3)<input type="file" accept="image/*" multiple className="hidden" onChange=${add} /></label>`}<${Er} t=${er} /></div>`};
+
+const Login=({onLogin,err})=>{
+const[u,setU]=useState(''),[p,setP]=useState('');
+const kd=e=>e.key==='Enter'&&onLogin(u.trim(),p);
+return html`<div className="grid min-h-[100dvh] place-items-center p-4"><div className="w-full max-w-sm">
+<div className="mb-5 text-center"><div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-navy text-white">${ic('Factory',28)}</div>
+<h1 className="text-2xl font-semibold">Log Line Cepha</h1><p className="text-sm text-mute">Log Harian Line Cephalosporin · CPOB/GMP</p></div>
+<div className=${CD+' space-y-3'}>
+<${F} l="Username"><input className=${IN} value=${u} autoCapitalize="none" onChange=${e=>setU(e.target.value)} onKeyDown=${kd} /><//>
+<${F} l="Password"><input type="password" className=${IN} value=${p} onChange=${e=>setP(e.target.value)} onKeyDown=${kd} /><//>
+<${Er} t=${err} />
+<button className=${PR+' w-full'} onClick=${()=>onLogin(u.trim(),p)}>${ic('Lock')} Masuk</button>
+</div></div></div>`};
+
+const Inp=({d,setD,submit})=>{
+const[t,setT]=useState(0),m=M[t],x=d[m.k];
+const top=(k,v)=>setD(s=>({...s,[k]:v}));
+const up=(f,v)=>setD(s=>({...s,[m.k]:{...s[m.k],[f]:v}}));
+const evs=fn=>up('ev',fn(x.ev));
+const ol=fn=>up('o',fn(x.o)),so=(i,f,v)=>ol(a=>a.map((o,j)=>j===i?{...o,[f]:v}:o)),sp=(i,fn)=>setD(s=>({...s,[m.k]:{...s[m.k],ev:s[m.k].ev.map((o,j)=>j===i?{...o,p:fn(o.p||[])}:o)}}));
+const se=(i,f,v)=>evs(a=>a.map((o,j)=>j===i?{...o,[f]:v}:o));
+return html`<div className="space-y-3">
+<section className=${CD}><h2 className="mb-3 font-semibold">A. Identitas Shift & Batch</h2><div className="grid grid-cols-2 gap-3">
+<${F} l="Tanggal Laporan"><input type="date" className=${IN} value=${d.date} onChange=${e=>top('date',e.target.value)} /><//>
+<${F} l="Shift"><select className=${IN} value=${d.shift} onChange=${e=>top('shift',e.target.value)}>${SH.map(s=>html`<option key=${s}>${s}</option>`)}</select><//>
+<${F} l="Nama Produk"><input className=${IN} value=${d.product} onChange=${e=>top('product',e.target.value)} /><//>
+<${F} l="Nomor Batch"><input className=${IN} value=${d.batch} onChange=${e=>top('batch',e.target.value)} /><//></div>
+<p className="mt-2 text-xs text-mute">Tanggal terisi otomatis hari ini. Ubah bila laporan baru diinput di hari berikutnya.</p></section>
+<section className=${CD}><h2 className="mb-3 font-semibold">B. Parameter & Kejadian per Mesin</h2>
+<div className="mb-4 grid grid-cols-4 gap-1 rounded-xl bg-bg p-1">${M.map((n,i)=>html`<button key=${n.k} onClick=${()=>setT(i)} className=${'rounded-lg px-1 py-2 text-xs font-medium '+(i===t?'bg-navy text-white':'text-mute')}><div className="flex justify-center">${ic(n.i)}</div>${i+1}. ${n.s}${d[n.k].ev.length>0?' ('+d[n.k].ev.length+')':''}</button>`)}</div>
+${m.k==='a'&&html`<div className="space-y-2"><h3 className="text-sm font-semibold">Output Sterilisasi Autoclave</h3>${x.o.length===0&&html`<p className="text-sm text-mute">Belum ada item. Tambahkan jenis yang disterilisasi pada shift ini.</p>`}
+${x.o.map((o,i)=>html`<div key=${o.id} className="space-y-2 rounded-lg border border-line p-3"><div className="flex items-center gap-2"><select className=${IN} value=${o.t} onChange=${v=>ol(a=>a.map((p,j)=>j===i?{...p,t:v.target.value,q:(v.target.value==='Lainnya')!==(p.t==='Lainnya')?'':p.q}:p))}>${AC.map(([n])=>html`<option key=${n}>${n}</option>`)}</select><button className="text-rose-600" aria-label="Hapus item" onClick=${()=>ol(a=>a.filter((_,j)=>j!==i))}>${ic('Trash2')}</button></div>
+${o.t==='Lainnya'?html`<div className="grid grid-cols-2 gap-2"><${F} l="Nama Item"><input className=${IN} value=${o.n} onChange=${v=>so(i,'n',v.target.value)} /><//><${F} l="Jumlah / Keterangan"><input className=${IN} value=${o.q} onChange=${v=>so(i,'q',v.target.value)} /><//></div>`:html`<${F} l=${'Jumlah ('+un(o.t)+')'}><div className="flex items-center gap-2"><input type="number" inputMode="numeric" min="0" className=${IN} value=${o.q} onChange=${v=>so(i,'q',v.target.value)} /><span className="text-sm font-medium text-mute">${un(o.t)}</span></div><//>`}</div>`)}
+<button className=${OU+' w-full'} onClick=${()=>ol(a=>[...a,{id:Date.now(),t:AC[0][0],n:'',q:''}])}>+ Tambah Item Autoclave</button></div>`}
+<div className="grid grid-cols-2 gap-3">${m.f.map(([f,l])=>html`<${F} key=${m.k+f} l=${l}><input type="number" inputMode="numeric" min="0" className=${IN} value=${x[f]} onChange=${e=>up(f,e.target.value)} /><//>`)}</div>
+<div className="mt-4 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Kejadian / Kendala ${m.s}</h3><${Bd} c=${x.ev.length?RD:BL}>Downtime ${dt(d,m.k)} menit<//></div>
+${x.ev.length===0&&html`<p className="mt-2 text-sm text-mute">Belum ada kejadian. Tambahkan bila ada kerusakan, setting, alarm, atau kendala komponen.</p>`}
+${x.ev.map((e,i)=>html`<div key=${e.id} className="mt-3 space-y-2 rounded-lg border border-line p-3">
+<div className="flex items-center justify-between"><span className="text-xs font-semibold text-mute">Kejadian ${i+1}</span><button className="text-rose-600" aria-label="Hapus kejadian" onClick=${()=>evs(a=>a.filter((_,j)=>j!==i))}>${ic('Trash2')}</button></div>
+<select className=${IN} value=${e.type} onChange=${v=>se(i,'type',v.target.value)}>${TY.map(s=>html`<option key=${s}>${s}</option>`)}</select>
+<div className="grid grid-cols-3 items-end gap-2"><${F} l="Mulai"><input type="time" className=${IN} value=${e.s} onChange=${v=>se(i,'s',v.target.value)} /><//>
+<${F} l="Selesai"><input type="time" className=${IN} value=${e.e} onChange=${v=>se(i,'e',v.target.value)} /><//>
+<div className="pb-2 text-center text-sm font-semibold text-rose-600">${dur(e.s,e.e)} mnt</div></div>
+<${F} l="Uraian Kejadian"><textarea rows="2" className=${IN} value=${e.desc} onChange=${v=>se(i,'desc',v.target.value)} /><//>
+<${F} l="Tindakan Perbaikan"><textarea rows="2" className=${IN} value=${e.act} onChange=${v=>se(i,'act',v.target.value)} /><//>
+<${Ph} p=${e.p||[]} set=${fn=>sp(i,fn)} /></div>`)}
+<button className=${OU+' mt-3 w-full'} onClick=${()=>evs(a=>[...a,{id:Date.now(),type:TY[0],s:'',e:'',desc:'',act:'',p:[]}])}>+ Tambah Kejadian ${m.s}</button></section>
+<button className=${PR+' w-full py-3 text-base'} onClick=${submit}>${ic('ClipboardList',18)} Submit Laporan Shift</button></div>`};
+
+const Mon=({R,me,onFix,onOk})=>{
+const[z,setZ]=useState(null),[o,setO]=useState({}),V=me.role!=='Operator';
+const L=[...R].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+if(!L.length)return html`<div className=${CD+' text-center text-sm text-mute'}>Belum ada laporan. Submit laporan shift pertama dari tab Input Laporan.</div>`;
+return html`<div className="space-y-3">${L.map(r=>html`<article key=${r.id} className=${CD}>
+<div className="flex items-start justify-between gap-2"><div><h3 className="font-semibold">Batch ${r.batch}</h3><p className="text-sm text-mute">${r.product}</p><p className="text-xs text-mute">${fd(r.date)} · ${r.shift}</p></div>
+<div className="flex flex-col items-end gap-1"><${Bd} c=${r.st==='Terverifikasi'?GR:AM}>${r.st==='Terverifikasi'?'Terverifikasi':'Menunggu Verifikasi'}<//>${r.cor.length>0&&html`<${Bd} c=${BL}>Dikoreksi ${r.cor.length}×<//>`}</div></div>
+<div className="mt-3 divide-y divide-line rounded-lg border border-line text-sm">${M.map(m=>html`<div key=${m.k} className="flex flex-wrap items-center gap-x-3 px-3 py-2"><span className="w-28 font-medium">${m.n}</span>${m.f.map(([f,l])=>html`<span key=${f} className="text-mute">${l.replace(' (pcs)','').replace('Jumlah ','')}: <b className="text-ink">${nf(r[m.k][f])}</b></span>`)}${m.k==='a'&&html`<span className="text-mute">Output: <b className="text-ink">${r.a.o.length?r.a.o.map(oTxt).join('; '):'-'}</b></span>`}<span className=${'ml-auto text-xs font-medium '+(dt(r,m.k)?'text-rose-600':'text-mute')}>${dt(r,m.k)} mnt</span></div>`)}</div>
+<p className="mt-2 text-sm">Yield: <b>${pc(yl(r))}</b></p>
+<p className="mt-1 text-xs text-mute">Diinput ${r.by} · ${r.at}${r.vb?' · Diverifikasi '+r.vb+' · '+r.vat:''}</p>
+<div className="mt-3 flex flex-wrap gap-2"><button className=${OU} onClick=${()=>setO(s=>({...s,[r.id]:!s[r.id]}))}>${o[r.id]?'Tutup Detail':'Lihat Detail'}</button>
+${(V||r.st!=='Terverifikasi')&&html`<button className=${OU} onClick=${()=>onFix(r)}>${ic('Pencil')} Koreksi Data</button>`}
+${V&&r.st!=='Terverifikasi'&&html`<button className=${PR} onClick=${()=>onOk(r)}>${ic('CheckCircle2')} Verifikasi / Approve</button>`}</div>
+${o[r.id]&&html`<div className="mt-3 space-y-2 border-t border-line pt-3 text-sm">
+${M.map(m=>r[m.k].ev.map(e=>html`<div key=${e.id} className="rounded-lg bg-bg p-2"><b>${m.n}</b> · ${e.type} · ${e.s}–${e.e} (${dur(e.s,e.e)} mnt)<div>${e.desc||'-'}</div><div className="text-mute">Tindakan: ${e.act||'-'}</div>${nph(e)>0&&html`<div className="mt-2 flex flex-wrap gap-2">${e.p.map((s,k)=>html`<img key=${k} src=${s} alt=${'Foto kendala '+(k+1)} onClick=${()=>setZ(s)} className="h-24 w-24 cursor-pointer rounded-lg border border-line object-cover" />`)}</div>`}</div>`))}
+${M.every(m=>!r[m.k].ev.length)&&html`<p className="text-mute">Tidak ada kejadian atau kendala.</p>`}
+${r.cor.map((c,i)=>html`<div key=${'c'+i} className="rounded-lg bg-sky-500/10 p-2"><b>Koreksi ${i+1}</b> · ${c.u} · ${c.t}${c.ch.map(([l,a,b])=>html`<div key=${l}>${l}: ${String(a)} → <b>${String(b)}</b></div>`)}<div className="text-mute">Alasan: ${c.why}</div></div>`)}</div>`}
+</article>`)}${z&&html`<div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-3" onClick=${()=>setZ(null)}><img src=${z} alt="Foto kendala" className="max-h-full max-w-full rounded-lg" /></div>`}</div>`};
+
+const Fix=({r,onClose,onSave})=>{
+const[f,setF]=useState(()=>({...Object.fromEntries(CF.map(([p])=>[p,get(r,p)])),o:r.a.o.map(x=>({...x}))})),[why,setWhy]=useState(''),[er,setEr]=useState('');
+const so=(i,k,v)=>setF(s=>({...s,o:s.o.map((x,j)=>j===i?{...x,[k]:v}:x)}));
+return html`<div className="fixed inset-0 z-20 flex items-end justify-center bg-black/50 sm:items-center"><div className=${CD+' max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-b-none pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:rounded-b-xl'}>
+<div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Koreksi Data · Batch ${r.batch}</h2><button aria-label="Tutup" onClick=${onClose}>${ic('X',20)}</button></div>
+<div className="space-y-3">${CF.map(([p,l])=>html`<${F} key=${p} l=${l}><div className="mb-1 text-xs text-mute">Nilai lama: <b className="text-ink">${String(get(r,p))}</b></div>
+${p==='shift'?html`<select className=${IN} value=${f[p]} onChange=${e=>setF({...f,[p]:e.target.value})}>${SH.map(s=>html`<option key=${s}>${s}</option>`)}</select>`:html`<input type=${p==='date'?'date':isN(p)?'number':'text'} min="0" className=${IN} value=${f[p]} onChange=${e=>setF({...f,[p]:e.target.value})} />`}<//>`)}
+${r.a.o.length>0&&html`<div className="space-y-2 rounded-lg border border-line p-3"><h3 className="text-sm font-semibold">Output Autoclave</h3>${f.o.map((o,i)=>html`<div key=${o.id} className="space-y-2 rounded-lg bg-bg p-2"><div className="flex items-center justify-between gap-2 text-xs text-mute"><span>Item ${i+1} · nilai lama: <b className="text-ink">${oTxt(r.a.o.find(x=>x.id===o.id)||o)}</b></span><button className="text-rose-600" aria-label="Hapus item" onClick=${()=>setF(s=>({...s,o:s.o.filter((_,j)=>j!==i)}))}>${ic('Trash2',16)}</button></div>
+<select className=${IN} value=${o.t} onChange=${v=>setF(s=>({...s,o:s.o.map((x,j)=>j===i?{...x,t:v.target.value,q:(v.target.value==='Lainnya')!==(x.t==='Lainnya')?'':x.q}:x)}))}>${AC.map(([n])=>html`<option key=${n}>${n}</option>`)}</select>
+${o.t==='Lainnya'?html`<div className="grid grid-cols-2 gap-2"><input placeholder="Nama Item" className=${IN} value=${o.n} onChange=${v=>so(i,'n',v.target.value)} /><input placeholder="Jumlah / Keterangan" className=${IN} value=${o.q} onChange=${v=>so(i,'q',v.target.value)} /></div>`:html`<div className="flex items-center gap-2"><input type="number" inputMode="numeric" min="0" className=${IN} value=${o.q} onChange=${v=>so(i,'q',v.target.value)} /><span className="text-sm font-medium text-mute">${un(o.t)}</span></div>`}</div>`)}</div>`}
+<${F} l="Alasan Koreksi (Reason for Change) — wajib"><textarea rows="3" className=${IN} value=${why} onChange=${e=>setWhy(e.target.value)} /><//>
+<${Er} t=${er} /></div>
+<div className="mt-4 grid grid-cols-2 gap-2"><button className=${OU} onClick=${onClose}>Batal</button><button className=${PR} onClick=${()=>{const e=onSave(r,f,why);if(e)setEr(e)}}>Simpan Koreksi</button></div></div></div>`};
+
+const Ana=({R,onX,onP})=>{
+const[fl,setFl]=useState({a:'',z:'',s:'',b:'',m:''});
+const L=R.filter(r=>inR(r.date,fl.a,fl.z)&&(!fl.s||r.shift===fl.s)&&(!fl.b||r.batch.toLowerCase().includes(fl.b.toLowerCase())));
+const g=agg(L),mx=Math.max(g.dw,g.df,g.dc,g.da,1),bad=!!(fl.a&&fl.z&&fl.a>fl.z);
+const m1=fl.m?M.find(m=>m.k===fl.m):null,ev=EV(L,fl.m),mp=m1?mt(L,m1):[];
+const P=m1&&({w:()=>['Net Input Washing',nf(g.net)+' pcs','('+nf(g.w)+' vial masuk − '+nf(g.sisa)+' sisa tunnel)'],f:()=>['Total Filling',nf(mp[0][1])+' pcs','Reject filling '+nf(g.fr)+' pcs'],c:()=>['Total Output Akhir Crimping',nf(g.co)+' pcs','Reject crimping '+nf(g.cr)+' pcs'],a:()=>['Item Disterilisasi',L.reduce((a,r)=>a+r.a.o.length,0)+' item',mp.length+' jenis item · rincian di bawah']})[m1.k]();
+return html`<div className="space-y-3">
+<section className=${CD}><h2 className="mb-3 font-semibold">Filter Data</h2><div className="grid grid-cols-2 gap-3">
+<${F} l="Dari Tanggal"><input type="date" className=${IN} value=${fl.a} onChange=${e=>setFl({...fl,a:e.target.value})} /><//>
+<${F} l="Sampai Tanggal"><input type="date" className=${IN} value=${fl.z} onChange=${e=>setFl({...fl,z:e.target.value})} /><//>
+<${F} l="Shift (opsional)"><select className=${IN} value=${fl.s} onChange=${e=>setFl({...fl,s:e.target.value})}><option value="">Semua</option>${SH.map(s=>html`<option key=${s}>${s}</option>`)}</select><//>
+<${F} l="Nomor Batch (opsional)"><input className=${IN} value=${fl.b} onChange=${e=>setFl({...fl,b:e.target.value})} /><//>
+<div className="col-span-2"><${F} l="Filter Mesin"><select className=${IN} value=${fl.m} onChange=${e=>setFl({...fl,m:e.target.value})}><option value="">Semua Mesin</option>${M.map(m=>html`<option key=${m.k} value=${m.k}>${m.n}</option>`)}</select><//></div></div>
+<div className="mt-3"><${Er} t=${bad?'Tanggal Dari tidak boleh melewati Sampai Tanggal.':''} /></div>
+<button className=${OU+' mt-3'} onClick=${()=>setFl({a:'',z:'',s:'',b:'',m:''})}>Reset filter</button></section>
+${m1&&html`<${React.Fragment}><section className="rounded-xl bg-navy p-4 text-white"><p className="text-sm opacity-80">${m1.n} · ${L.length} laporan · ${rng(fl)}</p><p className="mt-1 text-sm font-medium">${P[0]}</p><p className="text-4xl font-semibold">${P[1]}</p><p className="mt-1 text-sm opacity-80">${P[2]}</p></section>
+<section className=${CD}><h2 className="mb-2 font-semibold">Total Output / Parameter ${m1.s}</h2>${mp.length?html`<div className="grid grid-cols-2 gap-2">${mp.map(([k,v])=>html`<div key=${k} className="rounded-lg bg-bg p-2"><p className="text-xs text-mute">${k}</p><p className="text-lg font-semibold">${typeof v==='number'?nf(v):v}</p></div>`)}</div>`:html`<p className="text-sm text-mute">Belum ada output Autoclave pada rentang ini.</p>`}</section>
+<section className=${CD}><h2 className="mb-2 font-semibold">Downtime & Kejadian ${m1.s}</h2><div className="grid grid-cols-3 gap-2 text-center">${[['Downtime (menit)',g['d'+m1.k]],['Jumlah Kejadian',ev.length],['Kejadian Berfoto',ev.filter(x=>nph(x.e)).length]].map(([k,v])=>html`<div key=${k} className="rounded-lg bg-bg p-2"><p className="text-xs text-mute">${k}</p><p className="text-lg font-semibold">${nf(v)}</p></div>`)}</div></section><//>`}${!m1&&html`<${React.Fragment}><section className="rounded-xl bg-navy p-4 text-white"><p className="text-sm opacity-80">Yield material · ${L.length} laporan · ${rng(fl)}</p><p className="text-4xl font-semibold">${pc(g.y)}</p>
+<p className="mt-1 text-sm opacity-80">(${nf(g.w)} vial masuk − ${nf(g.sisa)} sisa tunnel) = ${nf(g.net)} → output akhir ${nf(g.co)}</p></section>
+<section className=${CD}><h2 className="mb-2 font-semibold">Total Reject per Mesin (pcs)</h2><div className="grid grid-cols-3 gap-2 text-center">${[['Washing','-'],['Filling',nf(g.fr)],['Crimping',nf(g.cr)]].map(([n,v])=>html`<div key=${n} className="rounded-lg bg-bg p-2"><p className="text-xs text-mute">${n}</p><p className="text-lg font-semibold">${v}</p></div>`)}</div></section>
+<section className=${CD}><h2 className="mb-2 font-semibold">Downtime per Mesin (menit)</h2>${[['Washing Vial',g.dw],['Filling Vial',g.df],['Crimping',g.dc],['Autoclave Fedegari',g.da]].map(([n,v])=>html`<div key=${n} className="mb-2"><div className="flex justify-between text-sm"><span>${n}</span><b>${v}</b></div><div className="h-2 rounded bg-bg"><div className="h-2 rounded bg-rose-500" style=${{width:(v/mx*100)+'%'}}></div></div></div>`)}</section>
+<//>`}<div className="grid gap-2 sm:grid-cols-2"><button className=${PR+' py-3'} disabled=${bad} onClick=${()=>onX(L,fl)}>${ic('FileSpreadsheet',18)} Export Excel (.xlsx)</button><button className=${OU+' py-3'} disabled=${bad} onClick=${()=>onP(L,fl)}>${ic('FileText',18)} Export Laporan PDF</button></div></div>`};
+
+const Aud=({A,onP})=>{
+const[fl,setFl]=useState({a:'',z:''}),L=A.filter(a=>inR(iso(a.t),fl.a,fl.z)),bad=!!(fl.a&&fl.z&&fl.a>fl.z);
+return html`<div className="space-y-3"><section className=${CD}><h2 className="mb-3 font-semibold">Filter Audit Trail</h2><div className="grid grid-cols-2 gap-3">
+<${F} l="Dari Tanggal"><input type="date" className=${IN} value=${fl.a} onChange=${e=>setFl({...fl,a:e.target.value})} /><//>
+<${F} l="Sampai Tanggal"><input type="date" className=${IN} value=${fl.z} onChange=${e=>setFl({...fl,z:e.target.value})} /><//></div>
+<div className="mt-3"><${Er} t=${bad?'Tanggal Dari tidak boleh melewati Sampai Tanggal.':''} /></div>
+<p className="mt-2 text-xs text-mute">${L.length} dari ${A.length} catatan · ${rng(fl)}</p>
+<div className="mt-3"><button className=${PR+' w-full'} disabled=${bad} onClick=${()=>onP(L,fl)}>${ic('FileText')} Export Audit Trail (PDF)</button></div>
+<button className=${OU+' mt-2'} onClick=${()=>setFl({a:'',z:''})}>Reset filter</button></section>
+<div className=${CD+' divide-y divide-line'}>${L.length===0&&html`<p className="py-2 text-sm text-mute">Tidak ada catatan pada rentang ini.</p>`}${[...L].reverse().map((a,i)=>html`<div key=${i} className="py-2 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-mute">${a.t}</span><${Bd} c=${BL}>${a.a}<//><b>${a.u}</b></div><p className="mt-1 text-mute">${a.x}</p></div>`)}</div></div>`};
+
+const Rst=({u,onClose,onSave})=>{
+const[p,setP]=useState(''),[c,setC]=useState(''),[er,setEr]=useState('');
+return html`<div className="fixed inset-0 z-20 flex items-end justify-center bg-black/50 sm:items-center"><div className=${CD+' w-full max-w-sm rounded-b-none pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:rounded-b-xl'}>
+<div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Reset Password · ${u.username}</h2><button aria-label="Tutup" onClick=${onClose}>${ic('X',20)}</button></div>
+<div className="space-y-3"><p className="text-sm text-mute">Hitungan salah login direset ke 0, blokir dibuka, dan masa berlaku password diperpanjang ${PWD} hari.</p>
+<${F} l="Password Baru"><input type="password" className=${IN} value=${p} onChange=${e=>setP(e.target.value)} /><//>
+<${F} l="Ulangi Password Baru"><input type="password" className=${IN} value=${c} onChange=${e=>setC(e.target.value)} /><//>
+<${Er} t=${er} /></div>
+<div className="mt-4 grid grid-cols-2 gap-2"><button className=${OU} onClick=${onClose}>Batal</button><button className=${PR} onClick=${()=>{if(p!==c)return setEr('Konfirmasi password tidak sama.');const e=onSave(p);if(e)setEr(e)}}>Simpan Password</button></div></div></div>`};
+
+const Usr=({users,me,onAdd,onTog,onRst})=>{
+const E={name:'',username:'',pw:'',role:'Operator'},[f,setF]=useState(E),[er,setEr]=useState(''),[rs,setRs]=useState(null);
+const s=k=>e=>setF({...f,[k]:e.target.value});
+return html`<div className="space-y-3"><section className=${CD}><h2 className="mb-3 font-semibold">Buat Akun Baru</h2><div className="grid grid-cols-2 gap-3">
+<div className="col-span-2"><${F} l="Nama Lengkap"><input className=${IN} value=${f.name} onChange=${s('name')} /><//></div>
+<${F} l="Username"><input className=${IN} autoCapitalize="none" value=${f.username} onChange=${s('username')} /><//>
+<${F} l="Password"><input className=${IN} value=${f.pw} onChange=${s('pw')} /><//>
+<div className="col-span-2"><${F} l="Role"><select className=${IN} value=${f.role} onChange=${s('role')}><option>Operator</option><option>Supervisor</option><option>Admin</option></select><//></div></div>
+<div className="mt-3"><${Er} t=${er} /></div>
+<button className=${PR+' mt-3 w-full'} onClick=${()=>{const e=onAdd(f);setEr(e);if(!e)setF(E)}}>${ic('UserPlus')} Tambah User</button></section>
+<section className=${CD}><h2 className="mb-2 font-semibold">Daftar User</h2><div className="divide-y divide-line">${users.map(u=>html`<div key=${u.id} className="py-3"><div className="flex items-start justify-between gap-2"><div><p className="text-sm font-medium">${u.name} <span className="text-mute">(${u.username})</span></p><p className="text-xs text-mute">${u.label||u.role}</p><p className=${'text-xs '+(isEx(u)?'text-rose-600':'text-mute')}>Password berlaku s/d ${exS(u)}${u.fails>0?' · Gagal login '+u.fails+'/3':''}</p></div>
+<div className="flex flex-wrap justify-end gap-1"><${Bd} c=${u.on?GR:RD}>${u.on?'Aktif':'Nonaktif'}<//>${u.lock&&html`<${Bd} c=${RD}>Terblokir<//>`}${isEx(u)&&html`<${Bd} c=${AM}>Kedaluwarsa<//>`}</div></div>
+<div className="mt-2 flex flex-wrap gap-2"><button className=${OU+' px-2 py-1 text-xs'} onClick=${()=>setRs(u)}>${ic('KeyRound',14)} Reset Password & Buka Blokir</button>${u.id!==me.id&&html`<button className=${OU+' px-2 py-1 text-xs'} onClick=${()=>onTog(u)}>${u.on?'Nonaktifkan':'Aktifkan'}</button>`}</div></div>`)}</div></section>
+${rs&&html`<${Rst} u=${rs} onClose=${()=>setRs(null)} onSave=${p=>{const e=onRst(rs,p);if(!e)setRs(null);return e}} />`}</div>`};
+
+const App=()=>{
+const[users,setUsers]=useP(K.u,SEED),[R0,setR]=useP(K.r,ld('pl_reports',[])),[A,setA]=useP(K.a,ld('pl_audit',[])),[me,setMe]=useP(K.s,null);
+const R=R0.map(r=>r.a?r:{...r,a:{o:[],ev:[]}});
+const[tab,setTab]=useState('input'),[d,setD]=useState(blank),[fix,setFix]=useState(null),[msg,setMsg]=useState(null),[err,setErr]=useState(''),[pv,setPv]=useState(null);
+const log=(u,a,x)=>setA(p=>[...p,{t:ts(),u,a,x}]);
+const say=(t,ok=1)=>{setMsg({t,ok});setTimeout(()=>setMsg(null),3500)};
+const login=(un,pw)=>{const u=users.find(x=>x.username.toLowerCase()===un.toLowerCase());
+const upd=c=>setUsers(p=>p.map(x=>x.id===u.id?{...x,...c}:x));
+if(!u){setErr('Username atau password salah.');log(un||'-','Login Gagal','Percobaan login gagal untuk username: '+(un||'-'));return}
+if(u.lock){setErr('Akun terblokir. Hubungi Admin untuk reset password dan buka blokir.');log(u.name,'Login Ditolak','Akun terblokir');return}
+if(!u.on){setErr('Akun dinonaktifkan. Hubungi Admin.');log(u.name,'Login Ditolak','Akun nonaktif');return}
+if(u.pw!==pw){const n=(u.fails||0)+1;
+if(n>=3){upd({fails:n,lock:true});setErr('Password salah 3 kali berturut-turut. Akun diblokir, hubungi Admin.');log(u.name,'Akun Diblokir','Akun '+u.username+' diblokir otomatis setelah 3 kali salah password berturut-turut')}
+else{upd({fails:n});setErr('Username atau password salah. Sisa percobaan: '+(3-n)+'.');log(u.name,'Login Gagal','Salah password ('+n+'/3) untuk username: '+u.username)}return}
+if(isEx(u)){setErr('Password kedaluwarsa, hubungi Admin untuk reset');log(u.name,'Login Ditolak','Password kedaluwarsa sejak '+exS(u));return}
+upd({fails:0});setErr('');setMe({id:u.id,name:u.name,label:u.label||u.role,role:u.role});setTab('input');log(u.name,'Login','Login berhasil sebagai '+(u.label||u.role))};
+const logout=()=>{log(me.name,'Logout','Keluar dari sistem');setMe(null)};
+const submit=()=>{
+if(!d.date||!d.product.trim()||!d.batch.trim())return say('Lengkapi tanggal, nama produk, dan nomor batch.',0);
+const bad=M.flatMap(m=>m.f.map(([f,l])=>[m.k,f,l])).find(([k,f])=>d[k][f]===''||+d[k][f]<0);
+if(bad)return say('Isi angka yang valid: '+bad[2]+'.',0);
+if(+d.w.sisa>+d.w.in)return say('Sisa Tunnel tidak boleh melebihi Vial Masuk.',0);
+if(d.a.o.some(o=>o.t==='Lainnya'?!o.n.trim()||!String(o.q).trim():o.q===''||+o.q<0))return say('Lengkapi nama item dan jumlah pada Output Autoclave.',0);
+if(M.some(m=>d[m.k].ev.some(e=>!e.s||!e.e)))return say('Lengkapi waktu mulai dan selesai di semua kejadian.',0);
+const nm=k=>Object.fromEntries(Object.entries(d[k]).map(([f,v])=>[f,f==='ev'?v:+v]));
+const r={id:Date.now(),date:d.date,shift:d.shift,product:d.product.trim(),batch:d.batch.trim(),w:nm('w'),f:nm('f'),c:nm('c'),a:{o:d.a.o.map(o=>o.t==='Lainnya'?{...o,n:o.n.trim(),q:String(o.q).trim()}:{...o,n:'',q:+o.q}),ev:d.a.ev},by:me.name,at:ts(),st:'Menunggu',cor:[]};
+setR(p=>[...p,r]);log(me.name,'Submit Laporan','Batch '+r.batch+' · '+fd(r.date)+' '+r.shift+' · Yield '+pc(yl(r)));setD(blank());say('Laporan berhasil disubmit.');setTab('mon')};
+const ok=r=>{setR(p=>p.map(x=>x.id===r.id?{...x,st:'Terverifikasi',vb:me.name,vat:ts()}:x));log(me.name,'Verifikasi','Approve laporan Batch '+r.batch+' ('+fd(r.date)+' '+r.shift+')');say('Laporan terverifikasi.')};
+const save=(r,f,why)=>{if(me.role==='Operator'&&(R.find(x=>x.id===r.id)||r).st==='Terverifikasi')return 'Operator tidak dapat mengoreksi laporan yang sudah terverifikasi.';const ch=[];let n=r;
+for(const[p,l]of CF){const o=get(r,p),v=f[p];if(String(o)===String(v))continue;
+if(isN(p)&&(String(v).trim()===''||+v<0))return 'Nilai angka tidak valid: '+l;
+if(!isN(p)&&!String(v).trim())return 'Kolom tidak boleh kosong: '+l;
+const nv=isN(p)?+v:String(v).trim();ch.push([l,o,nv]);n=put(n,p,nv)}
+const ob=r.a.o,eo=f.o||ob;
+if(eo.some(o=>o.t==='Lainnya'?!String(o.n).trim()||!String(o.q).trim():String(o.q).trim()===''||+o.q<0))return 'Lengkapi nama item dan jumlah Output Autoclave (angka tidak boleh negatif).';
+const no=eo.map(o=>o.t==='Lainnya'?{...o,n:String(o.n).trim(),q:String(o.q).trim()}:{...o,n:'',q:+o.q});
+ob.forEach((o,i)=>{const x=no.find(y=>y.id===o.id),a=oTxt(o),b=x?oTxt(x):'(dihapus)';if(a!==b)ch.push(['Output Autoclave · Item '+(i+1),a,b])});
+n={...n,a:{...n.a,o:no}};
+if(!ch.length)return 'Belum ada nilai yang diubah.';
+if(n.w.sisa>n.w.in)return 'Sisa Tunnel tidak boleh melebihi Vial Masuk.';
+if(!why.trim())return 'Alasan Koreksi (Reason for Change) wajib diisi.';
+const nr={...n,st:'Menunggu',vb:null,vat:null,cor:[...r.cor,{t:ts(),u:me.name,ch,why:why.trim()}]};
+setR(p=>p.map(x=>x.id===r.id?nr:x));
+log(me.name,'Koreksi Data','Batch '+r.batch+' ('+fd(r.date)+' '+r.shift+'): '+ch.map(c=>c[0]+': '+c[1]+' → '+c[2]).join('; ')+' | Alasan: '+why.trim());
+setFix(null);say('Koreksi tersimpan. Laporan perlu diverifikasi ulang.');return ''};
+const addU=f=>{if(!f.name.trim()||!f.username.trim()||f.pw.length<4)return 'Isi nama, username, dan password (minimal 4 karakter).';
+if(users.some(u=>u.username.toLowerCase()===f.username.trim().toLowerCase()))return 'Username sudah dipakai.';
+const u={id:Date.now(),name:f.name.trim(),label:f.role==='Operator'?'Operator Line':f.role,username:f.username.trim(),pw:f.pw,role:f.role,on:true,pwAt:now(),fails:0,lock:false};
+setUsers(p=>[...p,u]);log(me.name,'Tambah User','User baru: '+u.name+' ('+u.username+') · Role '+u.role);say('User ditambahkan.');return ''};
+const tog=u=>{setUsers(p=>p.map(x=>x.id===u.id?{...x,on:!x.on}:x));log(me.name,u.on?'Nonaktifkan User':'Aktifkan User',u.name+' ('+u.username+')')};
+const rst=(u,p)=>{if(p.length<4)return 'Password baru minimal 4 karakter.';
+setUsers(x=>x.map(y=>y.id===u.id?{...y,pw:p,pwAt:now(),fails:0,lock:false}:y));
+log(me.name,'Reset Password','Password '+u.name+' ('+u.username+') direset; gagal login 0, blokir dibuka, berlaku '+PWD+' hari');say('Password direset dan akun dibuka blokirnya.');return ''};
+const fn=(fl,x)=>'LogLineCepha_'+x+(fl.m?'_'+M.find(m=>m.k===fl.m).s:'')+'_'+(fl.a||'awal')+'_sd_'+(fl.z||today())+'.xlsx';
+const chk=()=>window.XLSX||(say('Pustaka Excel belum termuat. Periksa koneksi internet lalu muat ulang.',0),0);
+const xProdF=(L,fl)=>{if(!chk())return;const n=fn(fl,'Produksi');xl(n,xProd(L,fl,me.name));log(me.name,'Export Excel',L.length+' laporan · '+mn(fl)+' · '+rng(fl)+' ('+n+')');say('File Excel diunduh.')};
+const pProdF=(L,fl)=>{setPv(rpt('Laporan Produksi dan Performa Line · '+mn(fl),fl,me.name,pProd(L,fl)));log(me.name,'Export PDF',L.length+' laporan · '+mn(fl)+' · '+rng(fl))};
+const pAudF=(L,fl)=>{setPv(rpt('Laporan Audit Trail',fl,me.name,'<p>Jumlah catatan: <b>'+L.length+'</b></p>'+tb(['Timestamp','User','Aksi','Detail'],L.map(a=>[a.t,a.u,a.a,a.x]))));log(me.name,'Export Audit Trail PDF',L.length+' catatan · '+rng(fl))};
+if(!me)return html`<${Login} onLogin=${login} err=${err} />`;
+const V=me.role!=='Operator',T=[['input','Input Laporan','ClipboardList'],['mon','Monitoring','ListChecks'],...(V?[['ana','Analisa & Export','BarChart3'],['aud','Audit Trail','History'],['usr','Kelola User','Users']]:[])];
+return html`<div className="pb-24"><header className="bg-navy text-white"><div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+<div className="flex items-center gap-2">${ic('Factory',22)}<div><p className="font-semibold leading-tight">Log Line Cepha</p><p className="text-xs opacity-75">Log Harian Line Cephalosporin</p></div></div>
+<div className="flex items-center gap-2"><div className="text-right text-xs leading-tight"><p className="font-medium">${me.name}</p><p className="opacity-75">${me.label}</p></div><button className="rounded-lg bg-white/15 p-2" aria-label="Keluar" onClick=${logout}>${ic('LogOut',18)}</button></div></div>
+<nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-3 pb-2">${T.map(([k,n,i])=>html`<button key=${k} onClick=${()=>setTab(k)} className=${'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm '+(tab===k?'bg-white font-medium text-slate-900':'text-white/80')}>${ic(i)} ${n}</button>`)}</nav></header>
+<main className="mx-auto max-w-3xl p-3">
+${tab==='input'&&html`<${Inp} d=${d} setD=${setD} submit=${submit} />`}
+${tab==='mon'&&html`<${Mon} R=${R} me=${me} onFix=${setFix} onOk=${ok} />`}
+${tab==='ana'&&V&&html`<${Ana} R=${R} onX=${xProdF} onP=${pProdF} />`}
+${tab==='aud'&&V&&html`<${Aud} A=${A} onP=${pAudF} />`}
+${tab==='usr'&&V&&html`<${Usr} users=${users} me=${me} onAdd=${addU} onTog=${tog} onRst=${rst} />`}</main>
+${fix&&html`<${Fix} r=${fix} onClose=${()=>setFix(null)} onSave=${save} />`}
+${pv&&html`<${Prev} h=${pv} onClose=${()=>setPv(null)} />`}
+${msg&&html`<div className=${'fixed inset-x-3 bottom-4 z-30 mx-auto mb-[env(safe-area-inset-bottom,0px)] max-w-sm rounded-lg px-4 py-3 text-sm text-white shadow-lg '+(msg.ok?'bg-emerald-600':'bg-rose-600')}>${msg.t}</div>`}</div>`};
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script></body></html>
