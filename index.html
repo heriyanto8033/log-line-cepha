@@ -17,14 +17,46 @@ select,input,textarea{color-scheme:light}
 <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.383.0/dist/umd/lucide-react.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SB_URL='https://xyqbnsgyxlmbivpbsgnj.supabase.co';
+const SB_KEY='sb_publishable_Ty5kHDPSGtOM7Oxb36C_ig_7OpRlsQ_';
+const sb=window.supabase?window.supabase.createClient(SB_URL,SB_KEY):null;
+
+const sbGetAll=async()=>{
+  if(sb){
+    const{data,error}=await sb.from('app_store').select('key,value');
+    if(error)throw error;
+    return Object.fromEntries((data||[]).map(r=>[r.key,r.value]));
+  }
+  const res=await fetch(SB_URL+'/rest/v1/app_store?select=key,value',{headers:{apikey:SB_KEY}});
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const data=await res.json();
+  return Object.fromEntries((data||[]).map(r=>[r.key,r.value]));
+};
+
+const sbSet=async(key,value)=>{
+  const row={key,value,updated_at:new Date().toISOString()};
+  if(sb){
+    const{error}=await sb.from('app_store').upsert(row,{onConflict:'key'});
+    if(error)throw error;
+    return;
+  }
+  const res=await fetch(SB_URL+'/rest/v1/app_store?on_conflict=key',{
+    method:'POST',
+    headers:{apikey:SB_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+    body:JSON.stringify(row)
+  });
+  if(!res.ok)throw new Error('HTTP '+res.status);
+};
+
 const{useState,useEffect}=React,h=React.createElement,html=htm.bind(h);
 const LC=window.lucideReact||window['lucide-react']||{};
 const ic=(n,s=16)=>LC[n]?h(LC[n],{size:s}):null;
 const K={u:'lc_users',r:'lc_reports',a:'lc_audit',s:'lc_session'};
 const ld=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
-const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){alert('Penyimpanan perangkat penuh. Data belum tersimpan: kurangi foto atau arsipkan laporan lama.')}};
-const useP=(k,d)=>{const[v,s]=useState(()=>ld(k,d));useEffect(()=>sv(k,v),[k,v]);return[v,s]};
+const svLocal=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const useP=(k,d)=>{const[v,s]=useState(()=>ld(k,d));useEffect(()=>svLocal(k,v),[k,v]);return[v,s]};
 const p2=n=>String(n).padStart(2,'0');
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())};
 const ts=()=>{const d=new Date();return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds())};
@@ -105,12 +137,13 @@ return html`<div className="space-y-2"><span className="block text-xs font-mediu
 <div className="flex flex-wrap gap-2">${p.map((s,i)=>html`<div key=${i} className="relative"><img src=${s} alt=${'Foto '+(i+1)} className="h-20 w-20 rounded-lg border border-line object-cover" /><button aria-label="Hapus foto" className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-rose-600 text-white" onClick=${()=>set(a=>a.filter((_,j)=>j!==i))}>${ic('X',14)}</button></div>`)}</div>
 ${p.length<3&&html`<label className=${OU+' cursor-pointer'}>${ic('Camera')} Ambil / Pilih Foto (${p.length}/3)<input type="file" accept="image/*" multiple className="hidden" onChange=${add} /></label>`}<${Er} t=${er} /></div>`};
 
-const Login=({onLogin,err})=>{
+const Login=({onLogin,err,sync})=>{
 const[u,setU]=useState(''),[p,setP]=useState('');
 const kd=e=>e.key==='Enter'&&onLogin(u.trim(),p);
 return html`<div className="grid min-h-[100dvh] place-items-center p-4"><div className="w-full max-w-sm">
 <div className="mb-5 text-center"><div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-navy text-white">${ic('Factory',28)}</div>
-<h1 className="text-2xl font-semibold">Log Line Cepha</h1><p className="text-sm text-mute">Log Harian Line Cephalosporin · CPOB/GMP</p></div>
+<h1 className="text-2xl font-semibold">Log Line Cepha</h1><p className="text-sm text-mute">Log Harian Line Cephalosporin · CPOB/GMP</p>
+<div className="mt-2"><${Bd} c=${sync==='ok'?GR:RD}>${sync==='ok'?'Terhubung ke Supabase Cloud':'Mode Offline (Lokal)'}<//></div></div>
 <div className=${CD+' space-y-3'}>
 <${F} l="Username"><input className=${IN} value=${u} autoCapitalize="none" onChange=${e=>setU(e.target.value)} onKeyDown=${kd} /><//>
 <${F} l="Password"><input type="password" className=${IN} value=${p} onChange=${e=>setP(e.target.value)} onKeyDown=${kd} /><//>
@@ -246,13 +279,58 @@ return html`<div className="space-y-3"><section className=${CD}><h2 className="m
 ${rs&&html`<${Rst} u=${rs} onClose=${()=>setRs(null)} onSave=${p=>{const e=onRst(rs,p);if(!e)setRs(null);return e}} />`}</div>`};
 
 const App=()=>{
-const[users,setUsers]=useP(K.u,SEED),[R0,setR]=useP(K.r,ld('pl_reports',[])),[A,setA]=useP(K.a,ld('pl_audit',[])),[me,setMe]=useP(K.s,null);
+const[users,setUsers]=useState(SEED),[R0,setR]=useState([]),[A,setA]=useState([]),[me,setMe]=useP(K.s,null);
+const[ready,setReady]=useState(false),[sync,setSync]=useState('loading');
 const R=R0.map(r=>r.a?r:{...r,a:{o:[],ev:[]}});
 const[tab,setTab]=useState('input'),[d,setD]=useState(blank),[fix,setFix]=useState(null),[msg,setMsg]=useState(null),[err,setErr]=useState(''),[pv,setPv]=useState(null);
-const log=(u,a,x)=>setA(p=>[...p,{t:ts(),u,a,x}]);
 const say=(t,ok=1)=>{setMsg({t,ok});setTimeout(()=>setMsg(null),3500)};
+
+const saveCloud=async(k,val)=>{
+  svLocal(k,val);
+  setSync('saving');
+  try{
+    await sbSet(k,val);
+    setSync('ok');
+  }catch(e){
+    setSync('err');
+    say('Gagal menyimpan ke Supabase! Periksa koneksi internet.',0);
+  }
+};
+const upUsers=fn=>setUsers(p=>{const n=typeof fn==='function'?fn(p):fn;saveCloud(K.u,n);return n});
+const upR=fn=>setR(p=>{const n=typeof fn==='function'?fn(p):fn;saveCloud(K.r,n);return n});
+const upA=fn=>setA(p=>{const n=typeof fn==='function'?fn(p):fn;saveCloud(K.a,n);return n});
+
+const syncFromCloud=async(init=false)=>{
+  try{
+    const map=await sbGetAll();
+    if(map[K.u]){setUsers(map[K.u]);svLocal(K.u,map[K.u])}
+    else if(init){const u=ld(K.u,SEED);setUsers(u);await sbSet(K.u,u)}
+    if(map[K.r]){setR(map[K.r]);svLocal(K.r,map[K.r])}
+    else if(init){const r=ld(K.r,ld('pl_reports',[]));setR(r);await sbSet(K.r,r)}
+    if(map[K.a]){setA(map[K.a]);svLocal(K.a,map[K.a])}
+    else if(init){const a=ld(K.a,ld('pl_audit',[]));setA(a);await sbSet(K.a,a)}
+    setSync('ok');
+    if(!init)say('Data terbaru berhasil dimuat dari Supabase.');
+  }catch(e){
+    if(init){
+      setUsers(ld(K.u,SEED));
+      setR(ld(K.r,ld('pl_reports',[])));
+      setA(ld(K.a,ld('pl_audit',[])));
+      say('Gagal terhubung ke Supabase, memakai data lokal.',0);
+    }else{
+      say('Gagal memuat data terbaru dari Supabase.',0);
+    }
+    setSync('err');
+  }finally{
+    if(init)setReady(true);
+  }
+};
+
+useEffect(()=>{syncFromCloud(true)},[]);
+
+const log=(u,a,x)=>upA(p=>[...p,{t:ts(),u,a,x}]);
 const login=(un,pw)=>{const u=users.find(x=>x.username.toLowerCase()===un.toLowerCase());
-const upd=c=>setUsers(p=>p.map(x=>x.id===u.id?{...x,...c}:x));
+const upd=c=>upUsers(p=>p.map(x=>x.id===u.id?{...x,...c}:x));
 if(!u){setErr('Username atau password salah.');log(un||'-','Login Gagal','Percobaan login gagal untuk username: '+(un||'-'));return}
 if(u.lock){setErr('Akun terblokir. Hubungi Admin untuk reset password dan buka blokir.');log(u.name,'Login Ditolak','Akun terblokir');return}
 if(!u.on){setErr('Akun dinonaktifkan. Hubungi Admin.');log(u.name,'Login Ditolak','Akun nonaktif');return}
@@ -271,8 +349,8 @@ if(d.a.o.some(o=>o.t==='Lainnya'?!o.n.trim()||!String(o.q).trim():o.q===''||+o.q
 if(M.some(m=>d[m.k].ev.some(e=>!e.s||!e.e)))return say('Lengkapi waktu mulai dan selesai di semua kejadian.',0);
 const nm=k=>Object.fromEntries(Object.entries(d[k]).map(([f,v])=>[f,f==='ev'?v:+v]));
 const r={id:Date.now(),date:d.date,shift:d.shift,product:d.product.trim(),batch:d.batch.trim(),w:nm('w'),f:nm('f'),c:nm('c'),a:{o:d.a.o.map(o=>o.t==='Lainnya'?{...o,n:o.n.trim(),q:String(o.q).trim()}:{...o,n:'',q:+o.q}),ev:d.a.ev},by:me.name,at:ts(),st:'Menunggu',cor:[]};
-setR(p=>[...p,r]);log(me.name,'Submit Laporan','Batch '+r.batch+' · '+fd(r.date)+' '+r.shift+' · Yield '+pc(yl(r)));setD(blank());say('Laporan berhasil disubmit.');setTab('mon')};
-const ok=r=>{setR(p=>p.map(x=>x.id===r.id?{...x,st:'Terverifikasi',vb:me.name,vat:ts()}:x));log(me.name,'Verifikasi','Approve laporan Batch '+r.batch+' ('+fd(r.date)+' '+r.shift+')');say('Laporan terverifikasi.')};
+upR(p=>[...p,r]);log(me.name,'Submit Laporan','Batch '+r.batch+' · '+fd(r.date)+' '+r.shift+' · Yield '+pc(yl(r)));setD(blank());say('Laporan berhasil disubmit.');setTab('mon')};
+const ok=r=>{upR(p=>p.map(x=>x.id===r.id?{...x,st:'Terverifikasi',vb:me.name,vat:ts()}:x));log(me.name,'Verifikasi','Approve laporan Batch '+r.batch+' ('+fd(r.date)+' '+r.shift+')');say('Laporan terverifikasi.')};
 const save=(r,f,why)=>{if(me.role==='Operator'&&(R.find(x=>x.id===r.id)||r).st==='Terverifikasi')return 'Operator tidak dapat mengoreksi laporan yang sudah terverifikasi.';const ch=[];let n=r;
 for(const[p,l]of CF){const o=get(r,p),v=f[p];if(String(o)===String(v))continue;
 if(isN(p)&&(String(v).trim()===''||+v<0))return 'Nilai angka tidak valid: '+l;
@@ -287,27 +365,29 @@ if(!ch.length)return 'Belum ada nilai yang diubah.';
 if(n.w.sisa>n.w.in)return 'Sisa Tunnel tidak boleh melebihi Vial Masuk.';
 if(!why.trim())return 'Alasan Koreksi (Reason for Change) wajib diisi.';
 const nr={...n,st:'Menunggu',vb:null,vat:null,cor:[...r.cor,{t:ts(),u:me.name,ch,why:why.trim()}]};
-setR(p=>p.map(x=>x.id===r.id?nr:x));
+upR(p=>p.map(x=>x.id===r.id?nr:x));
 log(me.name,'Koreksi Data','Batch '+r.batch+' ('+fd(r.date)+' '+r.shift+'): '+ch.map(c=>c[0]+': '+c[1]+' → '+c[2]).join('; ')+' | Alasan: '+why.trim());
 setFix(null);say('Koreksi tersimpan. Laporan perlu diverifikasi ulang.');return ''};
 const addU=f=>{if(!f.name.trim()||!f.username.trim()||f.pw.length<4)return 'Isi nama, username, dan password (minimal 4 karakter).';
 if(users.some(u=>u.username.toLowerCase()===f.username.trim().toLowerCase()))return 'Username sudah dipakai.';
 const u={id:Date.now(),name:f.name.trim(),label:f.role==='Operator'?'Operator Line':f.role,username:f.username.trim(),pw:f.pw,role:f.role,on:true,pwAt:now(),fails:0,lock:false};
-setUsers(p=>[...p,u]);log(me.name,'Tambah User','User baru: '+u.name+' ('+u.username+') · Role '+u.role);say('User ditambahkan.');return ''};
-const tog=u=>{setUsers(p=>p.map(x=>x.id===u.id?{...x,on:!x.on}:x));log(me.name,u.on?'Nonaktifkan User':'Aktifkan User',u.name+' ('+u.username+')')};
+upUsers(p=>[...p,u]);log(me.name,'Tambah User','User baru: '+u.name+' ('+u.username+') · Role '+u.role);say('User ditambahkan.');return ''};
+const tog=u=>{upUsers(p=>p.map(x=>x.id===u.id?{...x,on:!x.on}:x));log(me.name,u.on?'Nonaktifkan User':'Aktifkan User',u.name+' ('+u.username+')')};
 const rst=(u,p)=>{if(p.length<4)return 'Password baru minimal 4 karakter.';
-setUsers(x=>x.map(y=>y.id===u.id?{...y,pw:p,pwAt:now(),fails:0,lock:false}:y));
+upUsers(x=>x.map(y=>y.id===u.id?{...y,pw:p,pwAt:now(),fails:0,lock:false}:y));
 log(me.name,'Reset Password','Password '+u.name+' ('+u.username+') direset; gagal login 0, blokir dibuka, berlaku '+PWD+' hari');say('Password direset dan akun dibuka blokirnya.');return ''};
 const fn=(fl,x)=>'LogLineCepha_'+x+(fl.m?'_'+M.find(m=>m.k===fl.m).s:'')+'_'+(fl.a||'awal')+'_sd_'+(fl.z||today())+'.xlsx';
 const chk=()=>window.XLSX||(say('Pustaka Excel belum termuat. Periksa koneksi internet lalu muat ulang.',0),0);
 const xProdF=(L,fl)=>{if(!chk())return;const n=fn(fl,'Produksi');xl(n,xProd(L,fl,me.name));log(me.name,'Export Excel',L.length+' laporan · '+mn(fl)+' · '+rng(fl)+' ('+n+')');say('File Excel diunduh.')};
 const pProdF=(L,fl)=>{setPv(rpt('Laporan Produksi dan Performa Line · '+mn(fl),fl,me.name,pProd(L,fl)));log(me.name,'Export PDF',L.length+' laporan · '+mn(fl)+' · '+rng(fl))};
 const pAudF=(L,fl)=>{setPv(rpt('Laporan Audit Trail',fl,me.name,'<p>Jumlah catatan: <b>'+L.length+'</b></p>'+tb(['Timestamp','User','Aksi','Detail'],L.map(a=>[a.t,a.u,a.a,a.x]))));log(me.name,'Export Audit Trail PDF',L.length+' catatan · '+rng(fl))};
-if(!me)return html`<${Login} onLogin=${login} err=${err} />`;
+
+if(!ready)return html`<div className="grid min-h-[100dvh] place-items-center p-4 text-center"><div><div className="mx-auto mb-3 grid h-14 w-14 animate-pulse place-items-center rounded-2xl bg-navy text-white">${ic('Factory',28)}</div><p className="font-semibold">Log Line Cepha</p><p className="mt-1 text-sm text-mute">Menghubungkan ke database Supabase...</p></div></div>`;
+if(!me)return html`<${Login} onLogin=${login} err=${err} sync=${sync} />`;
 const V=me.role!=='Operator',T=[['input','Input Laporan','ClipboardList'],['mon','Monitoring','ListChecks'],...(V?[['ana','Analisa & Export','BarChart3'],['aud','Audit Trail','History'],['usr','Kelola User','Users']]:[])];
 return html`<div className="pb-24"><header className="bg-navy text-white"><div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-<div className="flex items-center gap-2">${ic('Factory',22)}<div><p className="font-semibold leading-tight">Log Line Cepha</p><p className="text-xs opacity-75">Log Harian Line Cephalosporin</p></div></div>
-<div className="flex items-center gap-2"><div className="text-right text-xs leading-tight"><p className="font-medium">${me.name}</p><p className="opacity-75">${me.label}</p></div><button className="rounded-lg bg-white/15 p-2" aria-label="Keluar" onClick=${logout}>${ic('LogOut',18)}</button></div></div>
+<div className="flex items-center gap-2">${ic('Factory',22)}<div><p className="font-semibold leading-tight">Log Line Cepha</p><p className="text-xs opacity-85">${sync==='saving'?'Menyimpan ke Cloud...':sync==='ok'?'Cloud Supabase Aktif':'Offline (Lokal)'}</p></div></div>
+<div className="flex items-center gap-2"><button className="rounded-lg bg-white/15 p-2" aria-label="Sinkronkan Data" title="Muat ulang data dari Cloud" onClick=${()=>syncFromCloud(false)}>${ic('RefreshCw',18)}</button><div className="text-right text-xs leading-tight"><p className="font-medium">${me.name}</p><p className="opacity-75">${me.label}</p></div><button className="rounded-lg bg-white/15 p-2" aria-label="Keluar" onClick=${logout}>${ic('LogOut',18)}</button></div></div>
 <nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-3 pb-2">${T.map(([k,n,i])=>html`<button key=${k} onClick=${()=>setTab(k)} className=${'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm '+(tab===k?'bg-white font-medium text-slate-900':'text-white/80')}>${ic(i)} ${n}</button>`)}</nav></header>
 <main className="mx-auto max-w-3xl p-3">
 ${tab==='input'&&html`<${Inp} d=${d} setD=${setD} submit=${submit} />`}
