@@ -15,40 +15,24 @@ select,input,textarea{color-scheme:light}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>window.react=window.React</script>
 <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.383.0/dist/umd/lucide-react.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const SB_URL='https://xyqbnsgyxlmbxvpbsgnj.supabase.co';
+const ED='cepha-line.com';
 const SB_KEY='sb_publishable_Ty5kHDPSGtOM7Oxb36C_ig_7OpRlsQ_';
+const sb=window.supabase?window.supabase.createClient(SB_URL,SB_KEY):null;
 
 const sbGetAll=async()=>{
-  const res=await fetch(SB_URL+'/rest/v1/app_store?select=key,value',{
-    headers:{apikey:SB_KEY,Accept:'application/json'}
-  });
-  if(!res.ok){
-    const txt=await res.text().catch(()=>'');
-    throw new Error('HTTP '+res.status+': '+txt);
-  }
-  const data=await res.json();
+  const{data,error}=await sb.from('app_store').select('key,value');
+  if(error)throw new Error(error.message);
   return Object.fromEntries((data||[]).map(r=>[r.key,r.value]));
 };
-
 const sbSet=async(key,value)=>{
-  const row={key,value,updated_at:new Date().toISOString()};
-  const res=await fetch(SB_URL+'/rest/v1/app_store?on_conflict=key',{
-    method:'POST',
-    headers:{
-      apikey:SB_KEY,
-      'Content-Type':'application/json',
-      Prefer:'resolution=merge-duplicates,return=minimal'
-    },
-    body:JSON.stringify(row)
-  });
-  if(!res.ok){
-    const txt=await res.text().catch(()=>'');
-    throw new Error('HTTP '+res.status+': '+txt);
-  }
+  const{error}=await sb.from('app_store').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(error)throw new Error(error.message);
 };
 
 const{useState,useEffect}=React,h=React.createElement,html=htm.bind(h);
@@ -67,7 +51,6 @@ const now=()=>new Date().toISOString(),PWD=90;
 const exD=u=>{const d=new Date(u.pwAt||0);d.setDate(d.getDate()+PWD);d.setHours(23,59,59,999);return d};
 const exS=u=>{const d=exD(u);return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()};
 const isEx=u=>exD(u).getTime()<Date.now();
-const SEED=[{id:1,name:'Heri',label:'Operator Line',username:'Heri',pw:'12345',role:'Operator',on:true,pwAt:now(),fails:0,lock:false},{id:2,name:'SUP',label:'Supervisor / Admin',username:'SUP',pw:'12345',role:'Admin',on:true,pwAt:now(),fails:0,lock:false}];
 const SH=['Shift 1','Shift 2','Shift 3'],TY=['Kerusakan Mesin','Perbaikan & Setting','Alarm','Kendala Komponen'];
 const M=[{k:'w',n:'Washing Vial',s:'Washing',i:'Droplets',f:[['in','Jumlah Vial Masuk (pcs)'],['sisa','Sisa Tunnel (pcs)']]},{k:'f',n:'Filling Vial',s:'Filling',i:'Syringe',f:[['fill','Jumlah Filling (pcs)'],['rej','Reject Filling (pcs)']]},{k:'c',n:'Crimping',s:'Crimping',i:'Package',f:[['out','Output Akhir (pcs)'],['rej','Reject Crimping (pcs)']]},{k:'a',n:'Autoclave Fedegari',s:'Autoclave',i:'Flame',f:[]}];
 const AC=[['Rubber Stopper','Bag'],['Alucap','Bag'],['Part Filling','Set'],['Pressure Tank','Set'],['Baju','Bag'],['Tin Cadangan','Tin'],['Lainnya','']];
@@ -267,23 +250,11 @@ return html`<div className="fixed inset-0 z-20 flex items-end justify-center bg-
 <${Er} t=${er} /></div>
 <div className="mt-4 grid grid-cols-2 gap-2"><button className=${OU} onClick=${onClose}>Batal</button><button className=${PR} onClick=${()=>{if(p!==c)return setEr('Konfirmasi password tidak sama.');const e=onSave(p);if(e)setEr(e)}}>Simpan Password</button></div></div></div>`};
 
-const Usr=({users,me,onAdd,onTog,onRst})=>{
-const E={name:'',username:'',pw:'',role:'Operator'},[f,setF]=useState(E),[er,setEr]=useState(''),[rs,setRs]=useState(null);
-const s=k=>e=>setF({...f,[k]:e.target.value});
-return html`<div className="space-y-3"><section className=${CD}><h2 className="mb-3 font-semibold">Buat Akun Baru</h2><div className="grid grid-cols-2 gap-3">
-<div className="col-span-2"><${F} l="Nama Lengkap"><input className=${IN} value=${f.name} onChange=${s('name')} /><//></div>
-<${F} l="Username"><input className=${IN} autoCapitalize="none" value=${f.username} onChange=${s('username')} /><//>
-<${F} l="Password"><input className=${IN} value=${f.pw} onChange=${s('pw')} /><//>
-<div className="col-span-2"><${F} l="Role"><select className=${IN} value=${f.role} onChange=${s('role')}><option>Operator</option><option>Supervisor</option><option>Admin</option></select><//></div></div>
-<div className="mt-3"><${Er} t=${er} /></div>
-<button className=${PR+' mt-3 w-full'} onClick=${()=>{const e=onAdd(f);setEr(e);if(!e)setF(E)}}>${ic('UserPlus')} Tambah User</button></section>
-<section className=${CD}><h2 className="mb-2 font-semibold">Daftar User</h2><div className="divide-y divide-line">${users.map(u=>html`<div key=${u.id} className="py-3"><div className="flex items-start justify-between gap-2"><div><p className="text-sm font-medium">${u.name} <span className="text-mute">(${u.username})</span></p><p className="text-xs text-mute">${u.label||u.role}</p><p className=${'text-xs '+(isEx(u)?'text-rose-600':'text-mute')}>Password berlaku s/d ${exS(u)}${u.fails>0?' · Gagal login '+u.fails+'/3':''}</p></div>
-<div className="flex flex-wrap justify-end gap-1"><${Bd} c=${u.on?GR:RD}>${u.on?'Aktif':'Nonaktif'}<//>${u.lock&&html`<${Bd} c=${RD}>Terblokir<//>`}${isEx(u)&&html`<${Bd} c=${AM}>Kedaluwarsa<//>`}</div></div>
-<div className="mt-2 flex flex-wrap gap-2"><button className=${OU+' px-2 py-1 text-xs'} onClick=${()=>setRs(u)}>${ic('KeyRound',14)} Reset Password & Buka Blokir</button>${u.id!==me.id&&html`<button className=${OU+' px-2 py-1 text-xs'} onClick=${()=>onTog(u)}>${u.on?'Nonaktifkan':'Aktifkan'}</button>`}</div></div>`)}</div></section>
-${rs&&html`<${Rst} u=${rs} onClose=${()=>setRs(null)} onSave=${p=>{const e=onRst(rs,p);if(!e)setRs(null);return e}} />`}</div>`};
+const Usr=({users,me,onTog})=>html`<div className="space-y-3"><section className=${CD}><h2 className="mb-2 font-semibold">Tambah User / Reset Password</h2><p className="text-sm text-mute">Dilakukan oleh Admin di dashboard Supabase: Authentication → Users. Setelah akun dibuat, daftarkan nama dan perannya lewat SQL sesuai panduan.</p></section>
+<section className=${CD}><h2 className="mb-2 font-semibold">Daftar User</h2><div className="divide-y divide-line">${users.map(u=>html`<div key=${u.id} className="flex items-start justify-between gap-2 py-3"><div><p className="text-sm font-medium">${u.name} <span className="text-mute">(${u.username})</span></p><p className="text-xs text-mute">${u.label||u.role}</p></div><div className="flex flex-col items-end gap-1"><${Bd} c=${u.active?GR:RD}>${u.active?'Aktif':'Nonaktif'}<//>${u.id!==me.id&&me.role==='Admin'&&html`<button className=${OU+' px-2 py-1 text-xs'} onClick=${()=>onTog(u)}>${u.active?'Nonaktifkan':'Aktifkan'}</button>`}</div></div>`)}</div></section></div>`;
 
 const App=()=>{
-const[users,setUsers]=useState(SEED),[R0,setR]=useState([]),[A,setA]=useState([]),[me,setMe]=useP(K.s,null);
+const[users,setUsers]=useState([]),[R0,setR]=useState([]),[A,setA]=useState([]),[me,setMe]=useP(K.s,null);
 const[ready,setReady]=useState(false),[sync,setSync]=useState('loading'),[syncErr,setSyncErr]=useState('');
 const R=R0.map(r=>r.a?r:{...r,a:{o:[],ev:[]}});
 const[tab,setTab]=useState(me&&me.role!=='Operator'?'mon':'input'),[d,setD]=useState(blank),[fix,setFix]=useState(null),[msg,setMsg]=useState(null),[err,setErr]=useState(''),[pv,setPv]=useState(null);
@@ -304,52 +275,58 @@ const saveCloud=async(k,val)=>{
     say('Gagal menyimpan ke Supabase: '+(e.message||'cek koneksi'),0);
   }
 };
-const upUsers=fn=>setUsers(p=>{const n=typeof fn==='function'?fn(p):fn;saveCloud(K.u,n);return n});
 const upR=fn=>setR(p=>{const n=typeof fn==='function'?fn(p):fn;saveCloud(K.r,n);return n});
 const upA=fn=>setA(p=>{const n=typeof fn==='function'?fn(p):fn;saveCloud(K.a,n);return n});
 
+const getProfile=async id=>{const{data,error}=await sb.from('profiles').select('*').eq('id',id).maybeSingle();if(error)throw error;return data&&data.active?{id:data.id,name:data.name,label:data.label||data.role,role:data.role,username:data.username}:null};
 const syncFromCloud=async(init=false)=>{
   try{
     const map=await sbGetAll();
-    if(map[K.u]){setUsers(map[K.u]);svLocal(K.u,map[K.u])}
-    else if(init){const u=ld(K.u,SEED);setUsers(u);await sbSet(K.u,u)}
     if(map[K.r]){setR(map[K.r]);svLocal(K.r,map[K.r])}
-    else if(init){const r=ld(K.r,ld('pl_reports',[]));setR(r);await sbSet(K.r,r)}
+    else if(init){const r=ld(K.r,[]);setR(r);if(r.length)await sbSet(K.r,r)}
     if(map[K.a]){setA(map[K.a]);svLocal(K.a,map[K.a])}
-    else if(init){const a=ld(K.a,ld('pl_audit',[]));setA(a);await sbSet(K.a,a)}
-    setSync('ok');
-    setSyncErr('');
+    else if(init){const a=ld(K.a,[]);setA(a);if(a.length)await sbSet(K.a,a)}
+    const{data:pf}=await sb.from('profiles').select('*').order('name');
+    setUsers(pf||[]);
+    setSync('ok');setSyncErr('');
     if(!init)say('Data terbaru berhasil dimuat dari Supabase.');
   }catch(e){
     const m=e.message||String(e);
     setSyncErr(m);
-    if(init){
-      setUsers(ld(K.u,SEED));
-      setR(ld(K.r,ld('pl_reports',[])));
-      setA(ld(K.a,ld('pl_audit',[])));
-    }else{
-      say('Gagal memuat dari Supabase: '+m,0);
-    }
+    if(init){setR(ld(K.r,[]));setA(ld(K.a,[]))}else say('Gagal memuat dari Supabase: '+m,0);
     setSync('err');
-  }finally{
-    if(init)setReady(true);
   }
 };
+const boot=async()=>{
+  try{
+    if(!sb)throw new Error('Pustaka Supabase belum termuat. Periksa internet lalu muat ulang.');
+    const{data:{session}}=await sb.auth.getSession();
+    const pr=session?await getProfile(session.user.id):null;
+    if(pr){await syncFromCloud(true);setMe(pr)}
+    else{if(session)await sb.auth.signOut();setMe(null);setSync('ok');setSyncErr('')}
+  }catch(e){setSyncErr(e.message||String(e));setSync('err');setMe(null)}
+  finally{setReady(true)}
+};
 
-useEffect(()=>{syncFromCloud(true)},[]);
+useEffect(()=>{boot()},[]);
 
 const log=(u,a,x)=>upA(p=>[...p,{t:ts(),u,a,x}]);
-const login=(un,pw)=>{const u=users.find(x=>x.username.toLowerCase()===un.toLowerCase());
-const upd=c=>upUsers(p=>p.map(x=>x.id===u.id?{...x,...c}:x));
-if(!u){setErr('Username atau password salah.');log(un||'-','Login Gagal','Percobaan login gagal untuk username: '+(un||'-'));return}
-if(u.lock){setErr('Akun terblokir. Hubungi Admin untuk reset password dan buka blokir.');log(u.name,'Login Ditolak','Akun terblokir');return}
-if(!u.on){setErr('Akun dinonaktifkan. Hubungi Admin.');log(u.name,'Login Ditolak','Akun nonaktif');return}
-if(u.pw!==pw){const n=(u.fails||0)+1;
-if(n>=3){upd({fails:n,lock:true});setErr('Password salah 3 kali berturut-turut. Akun diblokir, hubungi Admin.');log(u.name,'Akun Diblokir','Akun '+u.username+' diblokir otomatis setelah 3 kali salah password berturut-turut')}
-else{upd({fails:n});setErr('Username atau password salah. Sisa percobaan: '+(3-n)+'.');log(u.name,'Login Gagal','Salah password ('+n+'/3) untuk username: '+u.username)}return}
-if(isEx(u)){setErr('Password kedaluwarsa, hubungi Admin untuk reset');log(u.name,'Login Ditolak','Password kedaluwarsa sejak '+exS(u));return}
-upd({fails:0});setErr('');try{localStorage.setItem('lc_last',String(Date.now()))}catch(x){}setMe({id:u.id,name:u.name,label:u.label||u.role,role:u.role});setTab(u.role==='Operator'?'input':'mon');log(u.name,'Login','Login berhasil sebagai '+(u.label||u.role))};
-const logout=()=>{log(me.name,'Logout','Keluar dari sistem');setMe(null)};
+const login=async(un,pw)=>{
+const u=(un||'').trim().toLowerCase();
+if(!u||!pw){setErr('Isi username dan password.');return}
+if(!sb){setErr('Pustaka Supabase belum termuat. Muat ulang halaman.');return}
+try{
+const{data,error}=await sb.auth.signInWithPassword({email:u+'@'+ED,password:pw});
+if(error){setErr('Username atau password salah.');return}
+const pr=await getProfile(data.user.id);
+if(!pr){await sb.auth.signOut();setErr('Akun nonaktif atau belum terdaftar. Hubungi Admin.');return}
+await syncFromCloud(true);
+setErr('');try{localStorage.setItem('lc_last',String(Date.now()))}catch(x){}
+setMe(pr);setTab(pr.role==='Operator'?'input':'mon');
+log(pr.name,'Login','Login berhasil sebagai '+pr.label)
+}catch(e){setErr('Gagal masuk: '+(e.message||'cek koneksi internet'))}};
+const outNow=()=>{setTimeout(()=>{try{sb.auth.signOut()}catch(e){}},1500);setMe(null)};
+const logout=()=>{log(me.name,'Logout','Keluar dari sistem');outNow()};
 useEffect(()=>{
 if(!me||!ready)return;
 const IDLE=10*60*1000,LK='lc_last';
@@ -358,7 +335,7 @@ const last=()=>{try{return +localStorage.getItem(LK)||0}catch(e){return 0}};
 if(!last())mark();
 let th=0;
 const act=()=>{const n=Date.now();if(n-th>5000){th=n;mark()}};
-const chk=()=>{if(Date.now()-last()>IDLE){log(me.name,'Logout Otomatis','Tidak ada aktivitas selama 10 menit');setMe(null);setErr('Sesi berakhir karena tidak ada aktivitas selama 10 menit. Silakan masuk kembali.')}};
+const chk=()=>{if(Date.now()-last()>IDLE){log(me.name,'Logout Otomatis','Tidak ada aktivitas selama 10 menit');outNow();setErr('Sesi berakhir karena tidak ada aktivitas selama 10 menit. Silakan masuk kembali.')}};
 const evs=['pointerdown','keydown','touchstart','scroll','input'];
 evs.forEach(e=>window.addEventListener(e,act,true));
 const iv=setInterval(chk,15000);
@@ -395,14 +372,10 @@ const nr={...n,st:'Menunggu',vb:null,vat:null,cor:[...r.cor,{t:ts(),u:me.name,ch
 upR(p=>p.map(x=>x.id===r.id?nr:x));
 log(me.name,'Koreksi Data','Batch '+r.batch+' ('+fd(r.date)+' '+r.shift+'): '+ch.map(c=>c[0]+': '+c[1]+' → '+c[2]).join('; ')+' | Alasan: '+why.trim());
 setFix(null);say('Koreksi tersimpan. Laporan perlu diverifikasi ulang.');return ''};
-const addU=f=>{if(!f.name.trim()||!f.username.trim()||f.pw.length<4)return 'Isi nama, username, dan password (minimal 4 karakter).';
-if(users.some(u=>u.username.toLowerCase()===f.username.trim().toLowerCase()))return 'Username sudah dipakai.';
-const u={id:Date.now(),name:f.name.trim(),label:f.role==='Operator'?'Operator Line':f.role,username:f.username.trim(),pw:f.pw,role:f.role,on:true,pwAt:now(),fails:0,lock:false};
-upUsers(p=>[...p,u]);log(me.name,'Tambah User','User baru: '+u.name+' ('+u.username+') · Role '+u.role);say('User ditambahkan.');return ''};
-const tog=u=>{upUsers(p=>p.map(x=>x.id===u.id?{...x,on:!x.on}:x));log(me.name,u.on?'Nonaktifkan User':'Aktifkan User',u.name+' ('+u.username+')')};
-const rst=(u,p)=>{if(p.length<4)return 'Password baru minimal 4 karakter.';
-upUsers(x=>x.map(y=>y.id===u.id?{...y,pw:p,pwAt:now(),fails:0,lock:false}:y));
-log(me.name,'Reset Password','Password '+u.name+' ('+u.username+') direset; gagal login 0, blokir dibuka, berlaku '+PWD+' hari');say('Password direset dan akun dibuka blokirnya.');return ''};
+const tog=async u=>{const{data:ch,error}=await sb.from('profiles').update({active:!u.active}).eq('id',u.id).select();
+if(error||!ch||!ch.length)return say('Gagal mengubah status: '+(error?error.message:'tidak diizinkan'),0);
+setUsers(p=>p.map(x=>x.id===u.id?{...x,active:!u.active}:x));
+log(me.name,u.active?'Nonaktifkan User':'Aktifkan User',u.name+' ('+u.username+')');say('Status user diubah.')};
 const fn=(fl,x)=>'LogLineCepha_'+x+(fl.m?'_'+M.find(m=>m.k===fl.m).s:'')+'_'+(fl.a||'awal')+'_sd_'+(fl.z||today())+'.xlsx';
 const chk=()=>window.XLSX||(say('Pustaka Excel belum termuat. Periksa koneksi internet lalu muat ulang.',0),0);
 const xProdF=(L,fl)=>{if(!chk())return;const n=fn(fl,'Produksi');xl(n,xProd(L,fl,me.name));log(me.name,'Export Excel',L.length+' laporan · '+mn(fl)+' · '+rng(fl)+' ('+n+')');say('File Excel diunduh.')};
@@ -410,8 +383,8 @@ const pProdF=(L,fl)=>{setPv(rpt('Laporan Produksi dan Performa Line · '+mn(fl),
 const pAudF=(L,fl)=>{setPv(rpt('Laporan Audit Trail',fl,me.name,'<p>Jumlah catatan: <b>'+L.length+'</b></p>'+tb(['Timestamp','User','Aksi','Detail'],L.map(a=>[a.t,a.u,a.a,a.x]))));log(me.name,'Export Audit Trail PDF',L.length+' catatan · '+rng(fl))};
 
 if(!ready)return html`<div className="grid min-h-[100dvh] place-items-center p-4 text-center"><div><div className="mx-auto mb-3 grid h-14 w-14 animate-pulse place-items-center rounded-2xl bg-navy text-white">${ic('Factory',28)}</div><p className="font-semibold">Log Line Cepha</p><p className="mt-1 text-sm text-mute">Menghubungkan ke database Supabase...</p></div></div>`;
-if(!me)return html`<${Login} onLogin=${login} err=${err} sync=${sync} syncErr=${syncErr} onRetry=${()=>syncFromCloud(false)} />`;
-const V=me.role!=='Operator',T=[...(V?[]:[['input','Input Laporan','ClipboardList']]),['mon','Monitoring','ListChecks'],...(V?[['ana','Analisa & Export','BarChart3'],['aud','Audit Trail','History'],['usr','Kelola User','Users']]:[])];
+if(!me)return html`<${Login} onLogin=${login} err=${err} sync=${sync} syncErr=${syncErr} onRetry=${boot} />`;
+const V=me.role!=='Operator',T=[...(V?[]:[['input','Input Laporan','ClipboardList']]),['mon','Monitoring','ListChecks'],...(V?[['ana','Analisa & Export','BarChart3'],['aud','Audit Trail','History']]:[]),...(me.role==='Admin'?[['usr','Kelola User','Users']]:[])];
 return html`<div className="pb-24"><header className="bg-navy text-white"><div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
 <div className="flex items-center gap-2">${ic('Factory',22)}<div><p className="font-semibold leading-tight">Log Line Cepha</p><p className="text-xs opacity-85">${sync==='saving'?'Menyimpan ke Cloud...':sync==='ok'?'Cloud Supabase Aktif':'Offline (Lokal)'}</p></div></div>
 <div className="flex items-center gap-2"><button className="rounded-lg bg-white/15 p-2" aria-label="Sinkronkan Data" title="Muat ulang data dari Cloud" onClick=${()=>syncFromCloud(false)}>${ic('RefreshCw',18)}</button><div className="text-right text-xs leading-tight"><p className="font-medium">${me.name}</p><p className="opacity-75">${me.label}</p></div><button className="rounded-lg bg-white/15 p-2" aria-label="Keluar" onClick=${logout}>${ic('LogOut',18)}</button></div></div>
@@ -421,7 +394,7 @@ ${tab==='input'&&!V&&html`<${Inp} d=${d} setD=${setD} submit=${submit} gm=${gm} 
 ${tab==='mon'&&html`<${Mon} R=${R} me=${me} onFix=${setFix} onOk=${ok} />`}
 ${tab==='ana'&&V&&html`<${Ana} R=${R} onX=${xProdF} onP=${pProdF} />`}
 ${tab==='aud'&&V&&html`<${Aud} A=${A} onP=${pAudF} />`}
-${tab==='usr'&&V&&html`<${Usr} users=${users} me=${me} onAdd=${addU} onTog=${tog} onRst=${rst} />`}</main>
+${tab==='usr'&&me.role==='Admin'&&html`<${Usr} users=${users} me=${me} onTog=${tog} />`}</main>
 ${fix&&html`<${Fix} r=${fix} onClose=${()=>setFix(null)} onSave=${save} />`}
 ${pv&&html`<${Prev} h=${pv} onClose=${()=>setPv(null)} />`}
 ${msg&&html`<div className=${'fixed inset-x-3 bottom-4 z-30 mx-auto mb-[env(safe-area-inset-bottom,0px)] max-w-sm rounded-lg px-4 py-3 text-sm text-white shadow-lg '+(msg.ok?'bg-emerald-600':'bg-rose-600')}>${msg.t}</div>`}</div>`};
